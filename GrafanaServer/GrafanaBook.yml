@@ -1,0 +1,33 @@
+---
+- name: configure Grafana server
+  hosts: default
+  become: yes
+  remote_user: yes
+
+  tasks:
+    - name: add grafana repo
+      copy:
+        src: /home/marijan/VagrantMachines/GrafanaServer/grafana.repo
+        dest: /etc/yum.repos.d/grafana.repo
+    - name: install grafana
+      yum:
+        name: grafana
+        state: latest
+    - name: open port
+      ansible.posix.firewalld:
+        zone: public
+        permanent: yes
+        state: enabled
+        port: 3000/tcp
+    - name: restart services
+      systemd:
+        enabled: yes
+        name: '{{ item }}'
+        state: restarted
+      loop:
+        - grafana-server
+        - NetworkManager
+        - firewalld
+...
+
+

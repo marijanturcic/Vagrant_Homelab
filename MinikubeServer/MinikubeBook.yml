@@ -1,0 +1,49 @@
+---
+- name: configure minikube server
+  hosts: default
+  become: yes
+  remote_user: yes
+
+  tasks:
+  - name: disable selinux
+    ansible.posix.selinux:
+      state: disabled
+  - name: add kubectl and docker-ce repo
+    copy:
+      src: '{{ item }}'
+      dest: /etc/yum.repos.d/
+    loop:
+      - /home/marijan/VagrantMachines/MinikubeServer/docker-ce.repo
+      - /home/marijan/VagrantMachines/MinikubeServer/kubernetes.repo
+  - name: install dependencies and kubectl
+    yum:
+      name: '{{ item }}'
+      state: latest
+    loop:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - conntrack-tools
+      - kubectl
+  - name: start and enable docker
+    systemd:
+      name: docker
+      state: restarted
+      enabled: yes
+  - name: enable masquerade
+    ansible.posix.firewalld:
+      zone: public
+      masquerade: yes
+      permanent: yes
+      state: enabled
+  - name: reload firewalld
+    systemd:
+      name: firewalld
+      state: restarted
+  - name: download minikube
+    get_url:
+      mode: a+rwx
+      url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+      dest: /usr/bin/
+...
+    

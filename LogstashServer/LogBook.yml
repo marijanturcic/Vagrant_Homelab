@@ -1,0 +1,20 @@
+---
+- name: configure logstash server
+  hosts: default
+  become: yes
+  remote_user: root
+
+  tasks:
+  - name: install java and logstash
+    yum:
+      name: '{{ item }}'
+      state: latest
+    loop:
+      - java-openjdk
+      - logstash
+  - name: start and enable logstashd
+    systemd:
+      name: logstash
+      state: restarted
+      enabled: yes
+...

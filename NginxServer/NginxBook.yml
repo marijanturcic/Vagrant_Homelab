@@ -1,0 +1,36 @@
+---
+- name: configure nginx server
+  hosts: default
+  become: true
+  remote_user: yes
+
+  tasks:
+  - name: install nxginx
+    yum:
+      name: nginx
+      state: latest
+  - name: start and enable nginxd
+    systemd:
+      name: nginx
+      enabled: yes
+      state: started
+  - name: open ports
+    ansible.posix.firewalld:
+      state: enabled
+      zone: public
+      permanent: yes
+      port: '{{ item }}'
+    loop:
+       - 80/tcp
+       - 443/tcp
+  - name: find ip address
+    shell: /sbin/ip -o -4 addr list eth1 | awk '{print $4}' | cut -d/ -f1 > /etc/nginxserverip
+  - name: reload network and firewalld
+    systemd:
+      name: '{{ item }}'
+      state: restarted
+    loop:
+      - NetworkManager
+      - firewalld
+...
+

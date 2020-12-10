@@ -1,0 +1,17 @@
+---
+- name: configure web servers
+  hosts: default
+  become: true
+  remote_user: root
+
+  tasks:
+  - name: update apache
+    yum:
+      name: httpd
+      state: latest
+  - name: start httpd
+    service:
+      name: httpd
+      state: started
+...
+

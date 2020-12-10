@@ -1,0 +1,37 @@
+---
+- name: configure jenkins server
+  hosts: default
+  become: yes
+  remote_user: root
+
+  tasks:
+  - name: download jenkins repository
+    get_url:
+      url: http://pkg.jenkins-ci.org/redhat-stable/jenkins.repo
+      dest: /etc/yum.repos.d/jenkins.repo
+  - name: get gpg key
+    rpm_key:
+      key: https://pkg.jenkins.io/redhat/jenkins.io.key
+      state: present
+  - name: install java jdk and jenkins
+    yum:
+      name: '{{ item }}'
+      state: latest
+    loop:
+      - java-openjdk
+      - jenkins
+  - name: add ports
+    ansible.posix.firewalld:
+      zone: public
+      permanent: yes
+      port: 8080/tcp
+      state: enabled
+  - name: restart firewalld and jenkins
+    systemd:
+      name: '{{ item }}'
+      enabled: yes
+      state: restarted
+    loop:
+      - firewalld
+      - jenkins
+...

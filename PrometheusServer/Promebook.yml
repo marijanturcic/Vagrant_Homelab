@@ -1,0 +1,94 @@
+---
+- name: configure Prometheus server
+  hosts: default
+  become: true
+  remote_user: root
+
+  tasks:
+  - name: update yum
+    yum:
+      state: latest
+      update_cache: true
+  - name: disable SELinux
+    ansible.posix.selinux:
+      state: disabled
+  - name: reboot
+    reboot:
+  - name: create Prometheus group
+    group:
+      name: prometheus
+      state: present
+      system: yes
+  - name: create Prometheus user
+    user:
+      name: prometheus
+      shell: "/bin/false"
+      home: /home/prometheus
+      group: prometheus
+      system: yes
+  - name: create Prometheus directories
+    file:
+      path: "{{ item }}"
+      state: directory
+      owner: prometheus
+      group: prometheus
+      recurse: yes
+      mode: '755'
+    loop:
+      - /etc/prometheus
+      - /var/lib/prometheus
+  - name: download and extract Prometheus
+    unarchive:
+      src: https://github.com/prometheus/prometheus/releases/download/v2.23.0/prometheus-2.23.0.linux-amd64.tar.gz
+      dest: /home/vagrant/
+      remote_src: yes
+      extra_opts:
+      - --strip-components=1
+  - name: copy promtool and prometheus
+    copy:
+      src: '{{ item }}'
+      dest: /usr/local/bin
+      group: prometheus
+      owner: prometheus
+      mode: '755'
+      remote_src: yes
+    loop:
+      - /home/vagrant/promtool
+      - /home/vagrant/prometheus
+  - name: copy console
+    copy:
+      src: '{{ item }}'
+      dest: /etc/prometheus/
+      group: prometheus
+      owner: prometheus
+      mode: '755'
+      remote_src: yes
+    loop:
+      - /home/vagrant/consoles
+      - /home/vagrant/console_libraries
+  - name: add prometheus yaml file
+    copy:
+      src: /home/marijan/VagrantMachines/PrometheusServer/prometheus.yml
+      dest: /etc/prometheus/prometheus.yml
+      owner: prometheus
+      group: prometheus
+      mode: '755'
+  - name: add prometheus.service
+    copy:
+      src: /home/marijan/VagrantMachines/PrometheusServer/prometheus.service
+      dest: /etc/systemd/system/prometheus.service
+  - name: add ports
+    ansible.posix.firewalld:
+      zone: public
+      port: 9090/tcp
+      state: enabled
+      permanent: yes
+  - name:
+    systemd:
+      daemon_reload: yes
+      name: '{{ item }}'
+      state: restarted
+    loop:
+      - prometheus
+      - firewalld
+...

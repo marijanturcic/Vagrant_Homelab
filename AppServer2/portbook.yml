@@ -1,0 +1,33 @@
+---
+- name: configure ports
+  hosts: default
+  become: true
+  remote_user: root
+
+  tasks:
+  - name: add server xml line
+    lineinfile:
+      path: /opt/tomcat/conf/server.xml
+      regexp: '<Server port="8005" shutdown="SHUTDOWN">'
+      line: '<Server port="8080" shutdown="SHUTDOWN">'
+      state: present
+  - name: add ip address xml line
+    lineinfile:
+      path: /opt/tomcat/conf/server.xml
+      insertafter: 'redirectPort="8443"'
+      line: '\n               address="192.168.1.29"'
+  - name: open port
+    ansible.posix.firewalld:
+      zone: public
+      port: 8005/tcp
+      permanent: yes
+  - name: add services line
+    lineinfile:
+      path: /etc/services
+      insertafter: '7009/udp                        # remote cache manager service'
+      line: '\ntomcat          8005/tcp                        # java app tomcat server'
+  - name: reload firewalld
+    systemctl:
+      name: firewalld
+      state: restart
+...

@@ -1,0 +1,60 @@
+---
+- name: configure web servers
+  hosts: default
+  become: true
+  remote_user: root
+
+  tasks:
+  - name: install java jre
+    yum:
+      name: java-openjdk
+      state: latest
+  - name: create tomcat directory
+    file:
+      path: /opt/tomcat
+      state: directory
+  - name: create tomcat group
+    group:
+      name: tomcat
+      state: present
+  - name: create tomcat user
+    user:
+      name: tomcat
+      shell: /bin/nologin
+      group: tomcat
+      home: /opt/tomcat
+  - name: download and extract tomcat
+    unarchive:
+      src: https://downloads.apache.org/tomcat/tomcat-8/v8.5.60/bin/apache-tomcat-8.5.60.tar.gz
+      dest: /opt/tomcat
+      remote_src: yes
+      extra_opts:
+      - --strip-components=1
+  - name: change tomcat group ownership
+    file:
+      path: /opt/tomcat
+      state: directory
+      recurse: yes
+      group: tomcat
+      mode: g+rwx
+  - name: folder permissions
+    file:
+      path: /opt/tomcat/*
+      state: directory
+      recurse: yes
+      group: tomcat
+      mode: g+rwx
+  - name: copy tomcatd file
+    copy:
+      src: /home/marijan/VagrantMachines/AppServer1/AppServerFiles/tomcat.service
+      dest: /etc/systemd/system/tomcat.service
+  - name: reload systemd
+    systemd:
+      daemon_reload: yes
+  - name: start and enable tomcat
+    systemd:
+      name: tomcat.service
+      state: started
+      enabled: yes
+...
+

@@ -1,0 +1,46 @@
+---
+- name: configure ElasticSearch server
+  hosts: default
+  become: yes
+  remote_user: yes
+
+  tasks:
+  - name: install java-jre
+    yum:
+      name: java-openjdk
+      state: latest
+  - name: add elasticsearch repo
+    copy:
+      src: /home/marijan/VagrantMachines/ElasticSearchServer/elasticsearch.repo
+      dest: /etc/yum.repos.d/elasticsearch.repo
+  - name: install elasticsearchj
+    yum:
+      name: elasticsearch
+      state: latest
+  - name: open ports
+    ansible.posix.firewalld:
+      port: 9200/tcp
+      state: enabled
+      zone: public
+      permanent: yes
+  - name: configure elasticsearch.yml
+    copy:
+      src: /home/marijan/VagrantMachines/ElasticSearchServer/elasticsearch.yml
+      dest: /etc/elasticsearch/elasticsearch.yml
+  - name: find ip address
+    shell: /sbin/ip -o -4 addr list eth1 | awk '{print $4}' | cut -d/ -f1 > /etc/elasticsearchserverip
+  - name: fetch ip address
+    fetch:
+      src: /etc/elasticsearchserverip
+      dest: /home/marijan/
+  - name: restart and enable elasticsearchd
+    systemd:
+      name: '{{ item }}'
+      enabled: yes
+      state: restarted
+    loop:
+      - firewalld
+      - NetworkManager
+      - elasticsearch
+...
+

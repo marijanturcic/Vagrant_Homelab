@@ -1,0 +1,105 @@
+---
+- name: configure web servers
+  hosts: default
+  become: true
+  remote_user: root
+
+  vars:
+    ip_address: "{{ lookup('file', '/home/marijan/default/etc/tomcatserverip') }}"
+
+  tasks:
+  - name: install java jre
+    yum:
+      name: java-openjdk
+      state: latest
+  - name: create tomcat directory
+    file:
+      path: /opt/tomcat
+      state: directory
+  - name: create tomcat group
+    group:
+      name: tomcat
+      state: present
+  - name: create tomcat user
+    user:
+      name: tomcat
+      shell: /bin/nologin
+      group: tomcat
+      home: /opt/tomcat
+  - name: download and extract tomcat
+    unarchive:
+      src: https://downloads.apache.org/tomcat/tomcat-8/v8.5.60/bin/apache-tomcat-8.5.60.tar.gz
+      dest: /opt/tomcat
+      remote_src: yes
+      extra_opts:
+      - --strip-components=1
+  - name: change tomcat group ownership
+    file:
+      path: /opt/tomcat
+      state: directory
+      recurse: yes
+      group: tomcat
+      mode: g+rwx
+  - name: folder permissions
+    file:
+      path: /opt/tomcat/*
+      state: directory
+      recurse: yes
+      group: tomcat
+      mode: g+rwx
+  - name: copy tomcatd file
+    copy:
+      src: /home/marijan/VagrantMachines/AppServer1/AppServerFiles/tomcat.service
+      dest: /etc/systemd/system/tomcat.service
+  - name: reload systemd
+    systemd:
+      daemon_reload: yes
+  - name: start and enable tomcat
+    systemd:
+      name: tomcat.service
+      state: started
+      enabled: yes
+  - name: find ip address
+    shell: /sbin/ip -o -4 addr list eth1 | awk '{print $4}' | cut -d/ -f1 > /etc/tomcatserverip
+  - name: fetch ip address
+    fetch:
+      src: /etc/tomcatserverip
+      dest: /home/marijan/
+  - name: change server xml line port
+    lineinfile:
+      path: /opt/tomcat/conf/server.xml
+      regexp: '<Server port="8005" shutdown="SHUTDOWN">'
+      line: '<Server port="8080" shutdown="SHUTDOWN">'
+      state: present
+  - name: add ip address xml line
+    replace:
+      path: /opt/tomcat/conf/server.xml
+      regexp: 'connectionTimeout="20000"'
+      replace: 'address="{{ ip_address }}"'
+  - name: change xml connector port
+    lineinfile:
+      path: /opt/tomcat/conf/server.xml
+      regexp: '    <Connector port="8080" protocol="HTTP/1.1"'
+      line: '    <Connector port="8005" protocol="HTTP/1.1"'
+      state: present
+  - name: open port
+    ansible.posix.firewalld:
+      zone: public
+      state: enabled
+      port: 8005/tcp
+      permanent: yes
+  - name: add services line
+    blockinfile:
+      path: /etc/services
+      insertafter: '7009/udp                        # remote cache manager service'
+      block: | 
+              'tomcat          8005/tcp                        # java app tomcat server'
+  - name: reload firewalld
+    systemd:
+      name: firewalld
+      state: restarted
+  - name: reload tomcat
+    systemd:
+      name: tomcat
+      state: restarted
+...
